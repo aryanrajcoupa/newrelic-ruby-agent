@@ -9,6 +9,12 @@ module NewRelic
   module Agent
     module VM
       class MriVM
+        @@slots_per_page = Hash.new do |hash, slot_size|
+          # https://github.com/ruby/ruby/blob/v3_3_1/test/ruby/test_gc.rb#L490-L492
+          multiple = slot_size / (GC::INTERNAL_CONSTANTS[:BASE_SLOT_SIZE] + GC::INTERNAL_CONSTANTS[:RVALUE_OVERHEAD])
+          hash[slot_size] = (GC::INTERNAL_CONSTANTS[:HEAP_PAGE_OBJ_LIMIT] / multiple) - 1
+        end
+
         def snapshot
           snap = Snapshot.new
           gather_stats(snap)
@@ -34,6 +40,15 @@ module NewRelic
             snap.minor_gc_count = gc_stats[:minor_gc_count]
             snap.heap_live = gc_stats[:heap_live_slots] || gc_stats[:heap_live_slot] || gc_stats[:heap_live_num]
             snap.heap_free = gc_stats[:heap_free_slots] || gc_stats[:heap_free_slot] || gc_stats[:heap_free_num]
+          end
+
+          if GC.respond_to?(:stat_heap)
+            GC.stat_heap.each do |i, s|
+              # https://github.com/ruby/ruby/blob/v3_3_1/test/ruby/test_gc.rb#L494
+              total_slots = s[:heap_eden_slots] + s[:heap_allocatable_pages] * @@slots_per_page[s[:slot_size]]
+              attr_name = "@heap_#{i}_slots".to_s
+              snap.instance_variable_set(attr_name, total_slots)
+            end
           end
         end
 

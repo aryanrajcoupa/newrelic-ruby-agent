@@ -9,7 +9,9 @@ module NewRelic
         attr_accessor :gc_total_time, :gc_runs, :major_gc_count, :minor_gc_count,
                       :total_allocated_object, :heap_live, :heap_free,
                       :method_cache_invalidations, :constant_cache_invalidations,
-                      :thread_count, :taken_at
+                      :thread_count, :taken_at,
+                      :heap_0_slots, :heap_1_slots, :heap_2_slots,
+                      :heap_3_slots, :heap_4_slots
 
         def initialize
           @taken_at = Time.now.to_f
