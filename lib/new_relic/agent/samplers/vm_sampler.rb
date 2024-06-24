@@ -19,6 +19,11 @@ module NewRelic
         METHOD_INVALIDATIONS_METRIC = 'RubyVM/CacheInvalidations/method'.freeze
         CONSTANT_INVALIDATIONS_METRIC = 'RubyVM/CacheInvalidations/constant'.freeze
         CONSTANT_MISSES_METRIC = 'RubyVM/CacheMisses/constant'.freeze
+        HEAP_0_SLOTS_METRIC = 'RubyVM/GC/Heap0Slots'.freeze
+        HEAP_1_SLOTS_METRIC = 'RubyVM/GC/Heap1Slots'.freeze
+        HEAP_2_SLOTS_METRIC = 'RubyVM/GC/Heap2Slots'.freeze
+        HEAP_3_SLOTS_METRIC = 'RubyVM/GC/Heap3Slots'.freeze
+        HEAP_4_SLOTS_METRIC = 'RubyVM/GC/Heap4Slots'.freeze
 
         attr_reader :transaction_count
 
@@ -105,6 +110,16 @@ module NewRelic
           end
         end
 
+        def record_vwa_heap_slots(snapshot)
+          return unless GC.respond_to?(:stat_heap)
+
+          record_gauge_metric(HEAP_0_SLOTS_METRIC, snapshot.heap_0_slots)
+          record_gauge_metric(HEAP_1_SLOTS_METRIC, snapshot.heap_1_slots)
+          record_gauge_metric(HEAP_2_SLOTS_METRIC, snapshot.heap_2_slots)
+          record_gauge_metric(HEAP_3_SLOTS_METRIC, snapshot.heap_3_slots)
+          record_gauge_metric(HEAP_4_SLOTS_METRIC, snapshot.heap_4_slots)
+        end
+
         def poll
           snap = take_snapshot
           tcount = reset_transaction_count
@@ -119,6 +134,7 @@ module NewRelic
           record_heap_live_metric(snap)
           record_heap_free_metric(snap)
           record_thread_count_metric(snap)
+          record_vwa_heap_slots(snap)
 
           @last_snapshot = snap
         end
