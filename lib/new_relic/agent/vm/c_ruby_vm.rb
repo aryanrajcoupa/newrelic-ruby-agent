@@ -9,6 +9,13 @@ module NewRelic
   module Agent
     module VM
       class CRubyVM
+
+        @@slots_per_page = Hash.new do |hash, slot_size|
+          # https://github.com/ruby/ruby/blob/v3_3_1/test/ruby/test_gc.rb#L490-L492
+          multiple = slot_size / (GC::INTERNAL_CONSTANTS[:BASE_SLOT_SIZE] + GC::INTERNAL_CONSTANTS[:RVALUE_OVERHEAD])
+          hash[slot_size] = (GC::INTERNAL_CONSTANTS[:HEAP_PAGE_OBJ_LIMIT] / multiple) - 1
+        end
+
         def snapshot
           snap = Snapshot.new
           gather_stats(snap)
@@ -25,6 +32,7 @@ module NewRelic
         def gather_gc_stats(snap)
           gather_gc_runs(snap) if supports?(:gc_runs)
           gather_derived_stats(snap)
+          gather_derived_heap_stats(snap)
         end
 
         def gather_gc_runs(snap)
@@ -38,6 +46,17 @@ module NewRelic
           snap.minor_gc_count = stat.fetch(:minor_gc_count, nil)
           snap.heap_live = stat.fetch(:heap_live_slots, nil)
           snap.heap_free = stat.fetch(:heap_free_slots, nil)
+        end
+
+        def gather_derived_heap_stats(snap)
+          return unless GC.respond_to?(:stat_heap)
+
+          GC.stat_heap.each do |i, s|
+            # https://github.com/ruby/ruby/blob/v3_3_1/test/ruby/test_gc.rb#L494
+            total_slots = s[:heap_eden_slots] + s[:heap_allocatable_pages] * @@slots_per_page[s[:slot_size]]
+            attr_name = "@heap_#{i}_slots".to_s
+            snap.instance_variable_set(attr_name, total_slots)
+          end
         end
 
         def gather_gc_time(snap)
